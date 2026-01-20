@@ -1,0 +1,7 @@
+{
+  "name": "Creative Studio AI Agent 5.0",
+  "description": "An intelligent workflow agent that transforms scenarios into professional copy and custom AI-generated visuals.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
