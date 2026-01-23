@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PersonaCategory, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference } from '../types';
+import { PersonaCategory, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference, VisualStyle, VISUAL_STYLES, PRESET_PRODUCTS } from '../types';
 import { storageService } from '../services/storageService';
 
 interface ScenarioInputProps {
@@ -13,8 +13,9 @@ interface ScenarioInputProps {
     selectedProductIds: Set<string>;
     selectedStyleRefIds: Set<string>;
     selectedContextIds: Set<string>;
+    selectedStyleId: string | null;
   };
-  onGenerate: (scenario: string, refImage: string | null, category: ContentCategory, userPersona: UserPersona, selectedContext: LibraryItem[], selectedUSP: SellingPoint[], selectedProducts: ProductPhoto[], selectedStyleRefs: StyleReference[]) => void;
+  onGenerate: (scenario: string, refImage: string | null, category: ContentCategory, userPersona: UserPersona, selectedContext: LibraryItem[], selectedUSP: SellingPoint[], selectedProducts: ProductPhoto[], selectedStyleRefs: StyleReference[], selectedPresetStyle: VisualStyle | null) => void;
   onUpdateData: (data: any) => void;
   isLoading: boolean;
   onOpenLibrary: () => void;
@@ -83,6 +84,7 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
 
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [selectedContextIds, setSelectedContextIds] = useState<Set<string>>(initialData.selectedContextIds);
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(initialData.selectedStyleId);
 
   useEffect(() => {
     setSellingPoints(storageService.getSellingPoints());
@@ -101,9 +103,10 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
       selectedUSPIds,
       selectedProductIds,
       selectedStyleRefIds,
-      selectedContextIds
+      selectedContextIds,
+      selectedStyleId
     });
-  }, [scenario, refImage, selectedCategory, userPersona, selectedUSPIds, selectedProductIds, selectedStyleRefIds, selectedContextIds]);
+  }, [scenario, refImage, selectedCategory, userPersona, selectedUSPIds, selectedProductIds, selectedStyleRefIds, selectedContextIds, selectedStyleId, onUpdateData]);
 
   const compressForStorage = (base64: string, maxWidth = 800): Promise<string> => {
     return new Promise((resolve) => {
@@ -130,7 +133,6 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
     });
   };
 
-  // 逻辑层优化：处理“定制新角色”逻辑，增加数量限制
   const handleStartNewCustom = () => {
     if (!isCustomPersona) {
       if (savedPersonas.length >= 3) {
@@ -148,7 +150,6 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
     setIsCustomPersona(!isCustomPersona);
   };
 
-  // 逻辑层优化：载入现有角色进入编辑模式
   const handleEditSavedPersona = (persona: UserPersona, e: React.MouseEvent) => {
     e.stopPropagation();
     setUserPersona(persona);
@@ -169,20 +170,6 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
       setIsCustomPersona(false);
       setUserPersona(saved);
     }, 1000);
-  };
-
-  // 逻辑层：物理删除逻辑保留但在 UI 中移除调用
-  const handleDeleteSavedPersona = (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (confirm("确定要永久删除这个人设档案吗？此操作无法撤销。")) {
-      storageService.deletePersona(id);
-      setSavedPersonas(prev => prev.filter(p => p.id !== id));
-      if (userPersona.id === id) {
-        setUserPersona(SYSTEM_PERSONAS[0]);
-        if (isCustomPersona) setIsCustomPersona(false);
-      }
-    }
   };
 
   const toggleUSP = (id: string) => {
@@ -277,9 +264,13 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
   const handleGenerateClick = () => {
     const context = libraryItems.filter(i => selectedContextIds.has(i.id));
     const usp = sellingPoints.filter(s => selectedUSPIds.has(s.id));
-    const products = productPhotos.filter(p => selectedProductIds.has(p.id));
+    const products = [
+      ...PRESET_PRODUCTS.filter(p => selectedProductIds.has(p.id)),
+      ...productPhotos.filter(p => selectedProductIds.has(p.id))
+    ];
     const styles = styleRefs.filter(r => selectedStyleRefIds.has(r.id));
-    onGenerate(scenario, refImage, selectedCategory, userPersona, context, usp, products, styles);
+    const presetStyle = VISUAL_STYLES.find(s => s.id === selectedStyleId) || null;
+    onGenerate(scenario, refImage, selectedCategory, userPersona, context, usp, products, styles, presetStyle);
   };
 
   return (
@@ -524,11 +515,65 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
 
         {activeTab === 'visual' && (
           <div className="space-y-8 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 创意风格预设 */}
+            <div className="space-y-4">
+              <label className="block text-sm font-black text-slate-800 flex flex-col gap-1 uppercase tracking-tighter">
+                <span className="flex items-center gap-2"><i className="fas fa-palette text-amber-500"></i> 创意风格预设 (简单快捷)</span>
+                <span className="text-[10px] text-slate-400 normal-case font-bold">选择适合您场景的视觉基调</span>
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {VISUAL_STYLES.map((style) => (
+                  <button
+                    key={style.id}
+                    onClick={() => setSelectedStyleId(selectedStyleId === style.id ? null : style.id)}
+                    className={`p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 ${
+                      selectedStyleId === style.id 
+                        ? 'bg-amber-50 border-amber-600 ring-4 ring-amber-100 shadow-lg' 
+                        : 'bg-white border-slate-100 hover:border-amber-200'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedStyleId === style.id ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      <i className={`fas ${style.icon}`}></i>
+                    </div>
+                    <div className="font-black text-xs text-slate-800">{style.name}</div>
+                    <div className="text-[9px] text-slate-400 leading-tight line-clamp-2">{style.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 品牌官方图库 - 独立一行，大图模式 */}
+            <div className="space-y-4 pt-4 border-t border-slate-50">
+              <label className="block text-sm font-black text-slate-800 flex flex-col gap-1 uppercase tracking-tighter">
+                <span className="flex items-center gap-2"><i className="fas fa-wine-bottle text-amber-500"></i> 品牌官方图库 (内置单品)</span>
+                <span className="text-[10px] text-slate-400 normal-case font-bold">选择需要出镜的官方资产，点击切换选中状态</span>
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                {PRESET_PRODUCTS.map(photo => (
+                  <button 
+                    key={photo.id}
+                    onClick={() => toggleProductSelect(photo.id)} 
+                    className={`aspect-[3/4] w-full bg-white rounded-xl border-2 overflow-hidden relative transition-all p-1.5 ${
+                      selectedProductIds.has(photo.id) ? 'border-amber-600 ring-4 ring-amber-100 shadow-md scale-105 z-10' : 'border-slate-100 hover:border-amber-200'
+                    }`}
+                  >
+                    <img src={photo.url} className="w-full h-full object-contain pointer-events-none" alt={photo.name || "Built-in Product"} referrerPolicy="no-referrer" />
+                    {selectedProductIds.has(photo.id) && (
+                      <div className="absolute top-1 right-1 w-5 h-5 bg-amber-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-sm">
+                        <i className="fas fa-check"></i>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 其他视觉素材网格 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-50">
               <div className="space-y-3">
                 <label className="block text-sm font-black text-slate-800 flex flex-col gap-1 uppercase tracking-tighter">
-                  <span className="flex items-center gap-2"><i className="fas fa-camera text-amber-500"></i> 视觉捕捉 (场景)</span>
-                  <span className="text-[10px] text-slate-400 normal-case font-bold">拍摄真实环境图</span>
+                  <span className="flex items-center gap-2"><i className="fas fa-camera text-amber-500"></i> 视觉捕捉 (场景图)</span>
+                  <span className="text-[10px] text-slate-400 normal-case font-bold">拍摄或上传您的真实环境参考</span>
                 </label>
                 <div className="relative border-2 border-dashed border-slate-200 rounded-3xl h-44 flex items-center justify-center bg-slate-50 group overflow-hidden">
                   {refImage ? (
@@ -554,8 +599,8 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
 
               <div className="space-y-3">
                 <label className="block text-sm font-black text-slate-800 flex flex-col gap-1 uppercase tracking-tighter">
-                  <span className="flex items-center gap-2"><i className="fas fa-wand-magic-sparkles text-amber-500"></i> 创意参考 (风格)</span>
-                  <span className="text-[10px] text-slate-400 normal-case font-bold">支持最大 10MB 文件</span>
+                  <span className="flex items-center gap-2"><i className="fas fa-wand-magic-sparkles text-amber-500"></i> 参考图库 (辅助风格)</span>
+                  <span className="text-[10px] text-slate-400 normal-case font-bold">上传您喜欢的构图或色调图片</span>
                 </label>
                 <div className="bg-slate-50 rounded-3xl p-4 border border-slate-100 h-44 overflow-y-auto scrollbar-hide">
                   <div className="grid grid-cols-3 gap-2">
@@ -565,7 +610,7 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
                           onClick={() => toggleStyleSelect(ref.id)} 
                           className={`relative aspect-square w-full rounded-xl border-2 overflow-hidden transition-all cursor-pointer ${selectedStyleRefIds.has(ref.id) ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-transparent hover:border-amber-200'}`}
                         >
-                          <img src={ref.url} className="w-full h-full object-cover pointer-events-none" />
+                          <img src={ref.url} className="w-full h-full object-cover pointer-events-none" referrerPolicy="no-referrer" />
                         </div>
                         <button 
                           onClick={(e) => handleDeleteStyle(e, ref.id)} 
@@ -586,8 +631,8 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
 
               <div className="space-y-3">
                 <label className="block text-sm font-black text-slate-800 flex flex-col gap-1 uppercase tracking-tighter">
-                  <span className="flex items-center gap-2"><i className="fas fa-wine-bottle text-amber-500"></i> 品牌图库 (产品)</span>
-                  <span className="text-[10px] text-slate-400 normal-case font-bold">支持最大 10MB 文件</span>
+                  <span className="flex items-center gap-2"><i className="fas fa-wine-bottle text-amber-500"></i> 自定义产品库</span>
+                  <span className="text-[10px] text-slate-400 normal-case font-bold">上传您的私家拍摄黄酒资产</span>
                 </label>
                 <div className="bg-slate-50 rounded-3xl p-4 border border-slate-100 h-44 overflow-y-auto scrollbar-hide">
                   <div className="grid grid-cols-3 gap-2">
@@ -595,9 +640,9 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
                       <div key={photo.id} className="relative group">
                         <div 
                           onClick={() => toggleProductSelect(photo.id)} 
-                          className={`aspect-square w-full rounded-xl border-2 overflow-hidden relative transition-all cursor-pointer ${selectedProductIds.has(photo.id) ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-transparent hover:border-amber-200'}`}
+                          className={`aspect-square w-full bg-white rounded-xl border-2 overflow-hidden relative transition-all cursor-pointer p-1.5 ${selectedProductIds.has(photo.id) ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-transparent hover:border-amber-200'}`}
                         >
-                          <img src={photo.url} className="w-full h-full object-cover pointer-events-none" />
+                          <img src={photo.url} className="w-full h-full object-contain pointer-events-none" />
                         </div>
                         <button 
                           onClick={(e) => handleDeleteProduct(e, photo.id)} 
@@ -616,6 +661,7 @@ const ScenarioInput: React.FC<ScenarioInputProps> = ({ initialData, onGenerate, 
                 </div>
               </div>
             </div>
+
             <div className="flex justify-between pt-6 border-t border-slate-50">
               <button onClick={() => setActiveTab('foundation')} className="text-slate-400 font-bold text-sm">上一步</button>
               <button onClick={() => setActiveTab('scenario')} className="flex items-center gap-2 px-8 py-4 bg-amber-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-100">

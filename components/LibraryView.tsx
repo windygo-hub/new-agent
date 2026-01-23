@@ -38,31 +38,27 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onBack }) => {
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
-    // 1. 暴力拦截事件冒泡，确保不触发父级卡片的详情弹窗
+    // 强制阻止冒泡，防止触发卡片的详情点击事件
+    e.preventDefault();
     e.stopPropagation();
-    
-    // 2. 确认点击信号 (用户强制要求)
-    alert('点击到了删除按钮');
 
-    // 3. 弹出确认删除窗口
+    // 执行删除确认
     if (window.confirm("确定要永久删除这条灵感存档吗？此操作无法撤销。")) {
       try {
-        // 4. 执行物理删除逻辑
+        // 首先从本地存储物理删除
         storageService.deleteItem(id);
+        
+        // 然后同步更新 UI 状态，确保触发重新渲染
         setItems(prevItems => prevItems.filter(item => item.id !== id));
         
         // 如果当前正在查看此项详情，则关闭模态框
         if (selectedItem?.id === id) {
           setSelectedItem(null);
         }
-        
-        alert("该灵感记录已成功删除。");
       } catch (err) {
-        console.error("Delete failed:", err);
-        alert("删除失败，请刷新页面后重试。");
+        console.error("Delete operation failed:", err);
+        alert("删除操作遇到错误，请刷新页面后再试。");
       }
-    } else {
-      alert("已取消删除操作。");
     }
   };
 
@@ -102,7 +98,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onBack }) => {
               {item.imageUrl && (
                 <div className="relative h-48 overflow-hidden pointer-events-none">
                   <img src={item.imageUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
                     <i className="fas fa-eye text-white opacity-0 group-hover:opacity-100 text-2xl transition-opacity"></i>
                   </div>
                 </div>
@@ -123,12 +119,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onBack }) => {
                 </p>
               </div>
               
-              {/* 删除按钮：暴力提升 zIndex 并添加 pointer-events-auto 确保可点击 */}
               <button 
                 type="button"
                 onClick={(e) => handleDelete(e, item.id)}
-                style={{ zIndex: 9999, position: 'absolute', pointerEvents: 'auto' }}
-                className="absolute top-2 right-2 bg-white/95 backdrop-blur-md text-red-500 w-9 h-9 rounded-full opacity-60 group-hover:opacity-100 transition-all flex items-center justify-center hover:bg-red-500 hover:text-white shadow-xl border border-slate-100 active:scale-90"
+                style={{ zIndex: 9999, pointerEvents: 'auto' }}
+                className="absolute top-3 right-3 bg-white/95 backdrop-blur-md text-red-500 w-9 h-9 rounded-full opacity-60 group-hover:opacity-100 transition-all flex items-center justify-center hover:bg-red-500 hover:text-white shadow-xl border border-slate-100 active:scale-90"
                 title="永久删除"
               >
                 <i className="fas fa-trash-can text-xs pointer-events-none"></i>
@@ -138,7 +133,6 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* 详情查看模态框 */}
       {selectedItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[300] flex items-center justify-center p-6 animate-fade-in" onClick={() => setSelectedItem(null)}>
           <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row animate-scale-in" onClick={e => e.stopPropagation()}>

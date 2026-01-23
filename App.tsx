@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { WorkflowStep, GeneratedConcept, AspectRatio, ImageSize, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference, User } from './types';
+import { WorkflowStep, GeneratedConcept, AspectRatio, ImageSize, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference, User, VisualStyle } from './types';
 import { generateCreativeConcept, generateVisual } from './services/geminiService';
 import { storageService } from './services/storageService';
 import StepProgressBar from './components/StepProgressBar';
@@ -55,7 +55,8 @@ const App: React.FC = () => {
     selectedUSPIds: new Set<string>(),
     selectedProductIds: new Set<string>(),
     selectedStyleRefIds: new Set<string>(),
-    selectedContextIds: new Set<string>()
+    selectedContextIds: new Set<string>(),
+    selectedStyleId: null as string | null
   });
 
   useEffect(() => {
@@ -63,7 +64,6 @@ const App: React.FC = () => {
     if (user) setCurrentUser(user);
   }, []);
 
-  // 综合加载动画与进度管理
   useEffect(() => {
     if (isLoading && estimatedTime) {
       const totalTime = estimatedTime * 1000;
@@ -71,11 +71,10 @@ const App: React.FC = () => {
       
       loadingIntervalRef.current = window.setInterval(() => {
         const elapsed = Date.now() - startTime;
-        const progress = Math.min((elapsed / totalTime) * 100, 98); // 最多停在98%
+        const progress = Math.min((elapsed / totalTime) * 100, 98); 
         setLoadingProgress(progress);
       }, 100);
 
-      // 消息滚动
       const msgs = currentStep === WorkflowStep.SCENARIO_INPUT ? COPY_MESSAGES : VISUAL_MESSAGES;
       let msgIdx = 0;
       setLoadingMsg(msgs[0]);
@@ -113,16 +112,16 @@ const App: React.FC = () => {
     contextItems: LibraryItem[], 
     sellingPoints: SellingPoint[],
     selectedProducts: ProductPhoto[],
-    selectedStyleRefs: StyleReference[]
+    selectedStyleRefs: StyleReference[],
+    selectedPresetStyle: VisualStyle | null
   ) => {
     setIsLoading(true);
-    setEstimatedTime(12); // 文案生成约12秒
+    setEstimatedTime(12);
     const startTime = Date.now();
     
     try {
-      const result = await generateCreativeConcept(text, category, userPersona, refImage, contextItems, sellingPoints, selectedProducts);
+      const result = await generateCreativeConcept(text, category, userPersona, refImage, contextItems, sellingPoints, selectedProducts, selectedPresetStyle);
       
-      // 保证最少显示3秒加载动画以维持心理预期和UI流畅
       const minWait = 3000;
       const elapsed = Date.now() - startTime;
       if (elapsed < minWait) await new Promise(r => setTimeout(r, minWait - elapsed));
@@ -133,7 +132,8 @@ const App: React.FC = () => {
         selectedCategory: category, 
         userPersona,
         selectedProducts,
-        styleReferences: selectedStyleRefs
+        styleReferences: selectedStyleRefs,
+        selectedStyle: selectedPresetStyle
       });
       setSelectedCategory(category);
       setCurrentStep(WorkflowStep.CONCEPT_REVIEW);
@@ -159,7 +159,12 @@ const App: React.FC = () => {
     const startTime = Date.now();
 
     try {
-      const imageUrl = await generateVisual(prompt, copy, refImage || undefined, styleRef || undefined, productImages, isHighQuality, aspectRatio, imageSize);
+      // 如果有预设风格，将其 Prompt 拼接到主要 Prompt 中增强引导
+      const finalPrompt = concept?.selectedStyle 
+        ? `${prompt}. Visual Logic: ${concept.selectedStyle.prompt}` 
+        : prompt;
+
+      const imageUrl = await generateVisual(finalPrompt, copy, refImage || undefined, styleRef || undefined, productImages, isHighQuality, aspectRatio, imageSize);
       
       const minWait = 4000;
       const elapsed = Date.now() - startTime;
@@ -177,7 +182,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Fix: Added missing handleSkipImage function to transition to final output without generating an image
   const handleSkipImage = (copy: string, commentScript: string) => {
     setFinalImage(null);
     setFinalCopy(copy);

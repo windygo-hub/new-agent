@@ -1,11 +1,15 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { GeneratedConcept, AspectRatio, ImageSize, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto } from "../types";
+import { GeneratedConcept, AspectRatio, ImageSize, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, VisualStyle } from "../types";
 
-async function compressImage(base64Str: string): Promise<string> {
-  return new Promise((resolve) => {
+async function compressImage(urlOrBase64: string): Promise<string> {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.src = base64Str;
+    // 允许跨域加载
+    if (urlOrBase64.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.src = urlOrBase64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
       let width = img.width;
@@ -32,6 +36,10 @@ async function compressImage(base64Str: string): Promise<string> {
       }
       resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
     };
+    img.onerror = (e) => {
+      console.error("Image compression error:", e);
+      reject(new Error("图片处理失败，请检查链接是否有效。"));
+    };
   });
 }
 
@@ -42,34 +50,39 @@ export async function generateCreativeConcept(
   imageBase64?: string | null,
   contextItems: LibraryItem[] = [],
   sellingPoints: SellingPoint[] = [],
-  productPhotos: ProductPhoto[] = []
+  productPhotos: ProductPhoto[] = [],
+  selectedStyle?: VisualStyle | null
 ): Promise<GeneratedConcept> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   
-  // 注入历史记忆：从 contextItems 中提取过往风格
   const pastSuccesses = contextItems
     .filter(i => i.type === 'generated')
     .slice(0, 3)
     .map(i => i.copy)
     .join('\n---\n');
 
-  // 判断是否为个人日常维度 (维度 B)
   const isPersonalDimension = ['LIFE_AESTHETIC', 'LIFE_THOUGHT', 'LIFE_DAILY'].includes(category);
+
+  const styleInstruction = selectedStyle 
+    ? `\n【视觉风格要求】：当前用户选择了“${selectedStyle.name}”风格。
+描述为：${selectedStyle.description}
+在生成 visualSuggestion（配图建议）时，必须严格遵循该风格的光影、构图与调性逻辑。
+建议包含关键词：${selectedStyle.prompt}`
+    : '';
 
   const systemInstruction = isPersonalDimension 
     ? `你是一位真实的生活分享达人。
-【核心任务】：创作一段真诚、有质感的生活朋友圈文案。必须提供 3 个不同的创意方案。
-【品牌规范】：除非用户描述中明确提到，否则严禁主动出现酒类内容。**若提及品牌，必须使用全称“黄关黄酒”，严禁简写为“黄关”或“黄关PRO”。**
-【创作原则】：专注于生活点滴、心情感悟或审美分享。保持内容的纯粹性和个人色彩。
-【调性参考】：${pastSuccesses ? `参考过往文案的“叙事节奏和文字风格”：\n${pastSuccesses}` : '风格应自然、亲切、有质感，多用大白话，拒绝营销感。'}
-【文案规格】：字数必须严格控制在 60-80 字之间。
+【核心任务】：创作一段真诚、有质感的生活朋友圈文案。每次必须提供 3 个不同的创意方案。
+【品牌规范】：除非用户提供的场景描述中明确提到了“酒”或相关品牌，否则文案中严禁主动出现任何关于酒的内容。保持内容的纯粹。
+【称呼规范】：若文案中涉及到品牌 or 黄酒，必须完整表述为“黄关黄酒”，严禁使用“黄关”、“黄关PRO”等任何简写。
+【文案规格】：每篇文案字数必须严格控制在 60-80 字之间。${styleInstruction}
 【输出要求】：返回 JSON 格式，包含 3 个方案。`
     : `你是一位真实的“黄酒生活分享家”。
-【核心任务】：为黄酒品牌创作朋友圈文案。必须提供 3 个不同的创意方案。
-【品牌规范】：**必须使用全称“黄关黄酒”，严禁使用“黄关”、“黄关PRO”等任何简写。**
-【创作原则】：将产品价值自然融入生活场景，展现品牌格调与专业性。
-【调性参考】：${pastSuccesses ? `请参考该用户过往喜欢的文案风格：\n${pastSuccesses}` : '风格应干练、有质感、充满生活温情。'}
-【文案规格】：字数必须严格控制在 60-80 字之间。生成 3 个风格各异的方案。
+【核心任务】：为“黄关黄酒”创作朋友圈文案。每次必须提供 3 个不同的创意方案。
+【品牌规范】：必须使用全称“黄关黄酒”，严禁使用“黄关”、“黄关PRO”等任何简写方式。
+【创作原则】：将黄关黄酒的价值自然融入生活场景。
+【调性参考】：${pastSuccesses ? `参考该用户过往风格：\n${pastSuccesses}` : '风格自然、亲切、有质感，多用大白话，拒绝营销感。'}
+【文案规格】：每篇文案字数必须严格控制在 60-80 字之间。${styleInstruction}
 【输出要求】：返回 JSON 格式，包含 3 个方案。`;
 
   let prompt = `【当前身份】：${userPersona.name} (${userPersona.identity})\n【性格特质】：${userPersona.traits.join('、')}\n【创作场景】：${scenario}\n【内容维度】：${category}`;
@@ -82,7 +95,6 @@ export async function generateCreativeConcept(
     });
   }
 
-  // 维度 A 强制融入卖点，维度 B 仅作为可选背景参考
   if (!isPersonalDimension && sellingPoints.length > 0) {
     parts.push({ text: `必须融入的品牌记忆点（注意品牌称呼规范）：${sellingPoints.map(s => s.text).join('、')}` });
   } else if (isPersonalDimension && sellingPoints.length > 0) {
@@ -131,7 +143,7 @@ export async function generateVisual(
   copy: string,
   referenceImageBase64?: string, 
   styleRefBase64?: string, 
-  productImageBase64s: string[] = [], 
+  productImageUrls: string[] = [], 
   highQuality: boolean = false,
   aspectRatio: AspectRatio = "1:1",
   imageSize: ImageSize = "1K"
@@ -140,23 +152,32 @@ export async function generateVisual(
   const modelName = highQuality ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
   const parts: any[] = [];
 
-  if (productImageBase64s.length > 0) {
-    const mainProduct = await compressImage(productImageBase64s[0]);
-    parts.push({ inlineData: { mimeType: 'image/jpeg', data: mainProduct } });
-    parts.push({ text: `[STRICT ASSET REPLICATION] Replicate this EXACT bottle.` });
+  // 处理产品图库（可能为外部 URL 或 Base64）
+  if (productImageUrls.length > 0) {
+    try {
+      const mainProduct = await compressImage(productImageUrls[0]);
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: mainProduct } });
+      parts.push({ text: `[STRICT ASSET REPLICATION] Replicate this EXACT bottle of Huangguan Yellow Wine in the generation.` });
+    } catch (e) {
+      console.warn("Product image compression failed, skipping visual prompt part for image.");
+    }
   }
 
   if (referenceImageBase64) {
-    const sceneContext = await compressImage(referenceImageBase64);
-    parts.push({ inlineData: { mimeType: 'image/jpeg', data: sceneContext } });
+    try {
+      const sceneContext = await compressImage(referenceImageBase64);
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: sceneContext } });
+    } catch (e) {}
   }
 
   if (styleRefBase64) {
-    const styleContext = await compressImage(styleRefBase64);
-    parts.push({ inlineData: { mimeType: 'image/jpeg', data: styleContext } });
+    try {
+      const styleContext = await compressImage(styleRefBase64);
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: styleContext } });
+    } catch (e) {}
   }
 
-  const finalComposition = `VISUAL PROMPT: ${prompt}\nBRAND STORY: ${copy}`;
+  const finalComposition = `VISUAL PROMPT: ${prompt}\nBRAND STORY/CONTEXT: ${copy}`;
   parts.push({ text: finalComposition });
 
   try {
@@ -177,6 +198,7 @@ export async function generateVisual(
     }
     throw new Error("图像生成失败。");
   } catch (e: any) {
+    console.error("Visual Generation Error:", e);
     throw new Error("视觉资产生成异常。");
   }
 }
