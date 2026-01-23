@@ -38,28 +38,33 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onBack }) => {
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
-    // 强制阻止冒泡，防止触发卡片的详情点击事件
-    e.preventDefault();
-    e.stopPropagation();
+      // 1. 阻止点击事件穿透
+      e.preventDefault();
+      e.stopPropagation();
 
-    // 执行删除确认
-    if (window.confirm("确定要永久删除这条灵感存档吗？此操作无法撤销。")) {
+      // ❌ 删除这行：if (window.confirm(...)) {
+      // ✅ 改为直接执行删除逻辑：
+
+      console.log("准备删除 ID:", id); // 调试用
+
       try {
-        // 首先从本地存储物理删除
+        // 2. 调用服务层删除
         storageService.deleteItem(id);
         
-        // 然后同步更新 UI 状态，确保触发重新渲染
+        // 3. 更新界面 (立刻把删掉的项从列表中移除)
         setItems(prevItems => prevItems.filter(item => item.id !== id));
         
-        // 如果当前正在查看此项详情，则关闭模态框
+        // 4. 如果删的是当前打开的卡片，就关掉详情页
         if (selectedItem?.id === id) {
           setSelectedItem(null);
         }
+        console.log("删除成功！");
       } catch (err) {
-        console.error("Delete operation failed:", err);
+        console.error("删除出错:", err);
         alert("删除操作遇到错误，请刷新页面后再试。");
       }
-    }
+
+      // } ❌ 记得删掉 if 的结束大括号
   };
 
   const copyToClipboard = (text: string) => {
