@@ -56,9 +56,9 @@ export const storageService = {
       return null;
     }
   },
-  login: (username: string): User => {
-    const userId = generateSafeId(username);
-    const user: User = { id: userId, username, lastLogin: Date.now() };
+  login: (username: string, phone: string): User => {
+    const userId = generateSafeId(username + phone);
+    const user: User = { id: userId, username, phone, lastLogin: Date.now() };
     localStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
     return user;
   },

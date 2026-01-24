@@ -93,8 +93,8 @@ const App: React.FC = () => {
     };
   }, [isLoading, estimatedTime, currentStep]);
 
-  const handleLogin = (username: string) => {
-    const user = storageService.login(username);
+  const handleLogin = (username: string, phone: string) => {
+    const user = storageService.login(username, phone);
     setCurrentUser(user);
     setCurrentStep(WorkflowStep.SCENARIO_INPUT);
   };

@@ -2,16 +2,17 @@
 import React, { useState } from 'react';
 
 interface LoginProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, phone: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      onLogin(username.trim());
+    if (username.trim() && phone.trim()) {
+      onLogin(username.trim(), phone.trim());
     }
   };
 
@@ -37,15 +38,28 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-amber-200/40 uppercase tracking-widest ml-4">
-              推荐官账号 / 姓名
+              推荐官姓名
             </label>
             <input
               type="text"
-              placeholder="请输入您的姓名开启定制"
+              placeholder="请输入您的姓名"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-white/20 outline-none focus:ring-2 focus:ring-amber-500 transition-all"
               autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-amber-200/40 uppercase tracking-widest ml-4">
+              手机号码
+            </label>
+            <input
+              type="tel"
+              placeholder="请输入手机号开启定制"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-white/20 outline-none focus:ring-2 focus:ring-amber-500 transition-all"
             />
           </div>
 

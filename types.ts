@@ -16,6 +16,7 @@ export type ContentCategory =
 export interface User {
   id: string;
   username: string;
+  phone: string;
   lastLogin: number;
 }
 

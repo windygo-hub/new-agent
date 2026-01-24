@@ -157,7 +157,7 @@ export async function generateVisual(
     try {
       const mainProduct = await compressImage(productImageUrls[0]);
       parts.push({ inlineData: { mimeType: 'image/jpeg', data: mainProduct } });
-      parts.push({ text: `[STRICT ASSET REPLICATION] Replicate this EXACT bottle of Huangguan Yellow Wine in the generation.` });
+      parts.push({ text: `[STRICT ASSET REPLICATION] Replicate this EXACT bottle of Huangguan Yellow Wine in the generation. NOTE: The bottle MUST be shown with its cap OPENED.` });
     } catch (e) {
       console.warn("Product image compression failed, skipping visual prompt part for image.");
     }
@@ -177,7 +177,14 @@ export async function generateVisual(
     } catch (e) {}
   }
 
-  const finalComposition = `VISUAL PROMPT: ${prompt}\nBRAND STORY/CONTEXT: ${copy}`;
+  const mandatoryVisualRules = `
+[MANDATORY VISUAL CONSTRAINTS]:
+1. Any glasses shown in the image MUST be Japanese-style glass cups (日式玻璃杯).
+2. Use of goblets, wine glasses with stems, or high-heeled glasses is STRICTLY PROHIBITED.
+3. The Huangguan Yellow Wine bottle MUST be depicted with its bottle cap OPENED.
+  `.trim();
+
+  const finalComposition = `${mandatoryVisualRules}\n\nVISUAL PROMPT: ${prompt}\nBRAND STORY/CONTEXT: ${copy}`;
   parts.push({ text: finalComposition });
 
   try {
