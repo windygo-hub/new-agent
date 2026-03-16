@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { PersonaCategory, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference, VisualStyle, VISUAL_STYLES, PRESET_PRODUCTS } from '../types';
 import { storageService } from '../services/storageService';

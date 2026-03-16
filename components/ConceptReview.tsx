@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { useState } from 'react';
 import { GeneratedConcept, AspectRatio, ImageSize, Draft, ProductPhoto, StyleReference } from '../types';
 

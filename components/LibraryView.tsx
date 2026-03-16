@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { LibraryItem } from '../types';
 import { storageService } from '../services/storageService';

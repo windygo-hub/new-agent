@@ -1,5 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WorkflowStep, GeneratedConcept, AspectRatio, ImageSize, LibraryItem, ContentCategory, UserPersona, SellingPoint, ProductPhoto, StyleReference, User, VisualStyle } from './types';
 import { generateCreativeConcept, generateVisual } from './services/geminiService';
 import { storageService } from './services/storageService';
@@ -189,6 +191,14 @@ const App: React.FC = () => {
     setCurrentStep(WorkflowStep.FINAL_GENERATION);
   };
 
+  const handleScenarioUpdate = useCallback((data: Partial<typeof scenarioData>) => {
+    setScenarioData(prev => ({ ...prev, ...data }));
+  }, []);
+
+  const handleOpenLibrary = useCallback(() => {
+    setCurrentStep(WorkflowStep.LIBRARY);
+  }, []);
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
@@ -231,10 +241,10 @@ const App: React.FC = () => {
           {currentStep === WorkflowStep.SCENARIO_INPUT && (
             <ScenarioInput 
               initialData={scenarioData}
-              onUpdateData={(data) => setScenarioData(prev => ({ ...prev, ...data }))}
+              onUpdateData={handleScenarioUpdate}
               onGenerate={handleScenarioSubmit} 
               isLoading={isLoading} 
-              onOpenLibrary={() => setCurrentStep(WorkflowStep.LIBRARY)}
+              onOpenLibrary={handleOpenLibrary}
             />
           )}
 
