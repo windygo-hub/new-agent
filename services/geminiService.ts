@@ -104,7 +104,7 @@ async function postJsonStream<T>(
     if (value) {
       const chunk = decoder.decode(value, { stream: !done });
       buffer += chunk;
-      if (!hasFirstChunk) {
+      if (!hasFirstChunk && buffer.trim().length > 0) {
         hasFirstChunk = true;
         handlers?.onFirstChunk?.();
       }

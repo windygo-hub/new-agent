@@ -135,6 +135,11 @@ export async function POST(req: Request) {
       async start(controller) {
         const encoder = new TextEncoder();
         try {
+          // 【核心修复】：立即给前端发送一个空格占位符！
+          // 这相当于一个“心跳包”，能瞬间打破 Netlify 的 30 秒无响应限制。
+          // 空格完全符合 JSON 规范，不会导致后续解析报错。
+          controller.enqueue(encoder.encode(" "));
+          
           for await (const chunk of streamResponse) {
             if (chunk.text) {
               controller.enqueue(encoder.encode(chunk.text));
