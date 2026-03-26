@@ -40,9 +40,15 @@ const App: React.FC = () => {
   const [loadingMsg, setLoadingMsg] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [estimatedTime, setEstimatedTime] = useState<number | null>(null);
+  const [isConceptStreaming, setIsConceptStreaming] = useState(false);
   
   const loadingIntervalRef = useRef<number | null>(null);
   const messageIntervalRef = useRef<number | null>(null);
+  const streamBufferRef = useRef('');
+  const pendingTypewriterRef = useRef('');
+  const typedTextRef = useRef('');
+  const typewriterTimerRef = useRef<number | null>(null);
+  const hasFirstChunkRef = useRef(false);
 
   const [scenarioData, setScenarioData] = useState({
     scenario: '',
@@ -64,6 +70,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const user = storageService.getCurrentUser();
     if (user) setCurrentUser(user);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typewriterTimerRef.current) {
+        clearInterval(typewriterTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -120,13 +134,86 @@ const App: React.FC = () => {
     setIsLoading(true);
     setEstimatedTime(12);
     const startTime = Date.now();
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+    streamBufferRef.current = '';
+    pendingTypewriterRef.current = '';
+    typedTextRef.current = '';
+    hasFirstChunkRef.current = false;
+    setIsConceptStreaming(false);
+
+    const startTypewriter = () => {
+      if (typewriterTimerRef.current !== null) return;
+      typewriterTimerRef.current = window.setInterval(() => {
+        if (!pendingTypewriterRef.current) {
+          clearInterval(typewriterTimerRef.current!);
+          typewriterTimerRef.current = null;
+          return;
+        }
+        const take = Math.min(3, pendingTypewriterRef.current.length);
+        const next = pendingTypewriterRef.current.slice(0, take);
+        pendingTypewriterRef.current = pendingTypewriterRef.current.slice(take);
+        typedTextRef.current += next;
+        setConcept(prev => {
+          if (!prev || prev.drafts.length === 0) return prev;
+          const drafts = [...prev.drafts];
+          drafts[0] = { ...drafts[0], copy: typedTextRef.current };
+          return { ...prev, drafts };
+        });
+      }, 20);
+    };
     
     try {
-      const result = await generateCreativeConcept(text, category, userPersona, refImage, contextItems, sellingPoints, selectedProducts, selectedPresetStyle);
-      
-      const minWait = 3000;
-      const elapsed = Date.now() - startTime;
-      if (elapsed < minWait) await new Promise(r => setTimeout(r, minWait - elapsed));
+      const result = await generateCreativeConcept(
+        text, 
+        category, 
+        userPersona, 
+        refImage, 
+        contextItems, 
+        sellingPoints, 
+        selectedProducts, 
+        selectedPresetStyle,
+        {
+          onFirstChunk: () => {
+            if (hasFirstChunkRef.current) return;
+            hasFirstChunkRef.current = true;
+            setIsLoading(false);
+            setIsConceptStreaming(true);
+            setCurrentStep(WorkflowStep.CONCEPT_REVIEW);
+            setConcept({
+              drafts: [
+                { label: '方案 1', copy: '', visualSuggestion: '', commentScript: '' }
+              ],
+              referenceImage: refImage,
+              selectedCategory: category,
+              userPersona,
+              selectedProducts,
+              styleReferences: selectedStyleRefs,
+              selectedStyle: selectedPresetStyle
+            });
+          },
+          onChunk: (chunk) => {
+            streamBufferRef.current += chunk;
+            pendingTypewriterRef.current += chunk;
+            startTypewriter();
+          }
+        }
+      );
+
+      if (!hasFirstChunkRef.current) {
+        const minWait = 3000;
+        const elapsed = Date.now() - startTime;
+        if (elapsed < minWait) await new Promise(r => setTimeout(r, minWait - elapsed));
+      }
+
+      if (typewriterTimerRef.current) {
+        clearInterval(typewriterTimerRef.current);
+        typewriterTimerRef.current = null;
+      }
+      pendingTypewriterRef.current = '';
+      typedTextRef.current = '';
 
       setConcept({ 
         ...result, 
@@ -143,6 +230,7 @@ const App: React.FC = () => {
       alert(err.message);
     } finally {
       setIsLoading(false);
+      setIsConceptStreaming(false);
     }
   };
 
@@ -259,6 +347,7 @@ const App: React.FC = () => {
               onSkipImage={handleSkipImage}
               isLoading={isLoading}
               onBack={() => setCurrentStep(WorkflowStep.SCENARIO_INPUT)}
+              isStreaming={isConceptStreaming}
             />
           )}
 

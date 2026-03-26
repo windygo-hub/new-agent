@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GeneratedConcept, AspectRatio, ImageSize, Draft, ProductPhoto, StyleReference } from '../types';
 
 interface ConceptReviewProps {
@@ -10,14 +10,16 @@ interface ConceptReviewProps {
   onSkipImage: (copy: string, commentScript: string) => void;
   isLoading: boolean;
   onBack: () => void;
+  isStreaming?: boolean;
 }
 
-const ConceptReview: React.FC<ConceptReviewProps> = ({ concept, onGenerateImage, onSkipImage, isLoading, onBack }) => {
+const ConceptReview: React.FC<ConceptReviewProps> = ({ concept, onGenerateImage, onSkipImage, isLoading, onBack, isStreaming = false }) => {
   const [selectedDraftIndex, setSelectedDraftIndex] = useState(0);
   const currentDraft = concept.drafts[selectedDraftIndex];
   
   const [editedCopy, setEditedCopy] = useState(currentDraft.copy);
   const [editedPrompt, setEditedPrompt] = useState(currentDraft.visualSuggestion);
+  const hasUserEditedRef = useRef(false);
   
   const [isHighQuality, setIsHighQuality] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
@@ -27,7 +29,21 @@ const ConceptReview: React.FC<ConceptReviewProps> = ({ concept, onGenerateImage,
     setSelectedDraftIndex(index);
     setEditedCopy(concept.drafts[index].copy);
     setEditedPrompt(concept.drafts[index].visualSuggestion);
+    hasUserEditedRef.current = false;
   };
+
+  useEffect(() => {
+    if (isStreaming || !hasUserEditedRef.current) {
+      setEditedCopy(currentDraft.copy);
+      setEditedPrompt(currentDraft.visualSuggestion);
+    }
+  }, [currentDraft.copy, currentDraft.visualSuggestion, isStreaming]);
+
+  useEffect(() => {
+    if (isStreaming) {
+      hasUserEditedRef.current = false;
+    }
+  }, [isStreaming]);
 
   const ratios: {id: AspectRatio, label: string}[] = [
     {id: "1:1", label: "正方形"},
@@ -68,7 +84,10 @@ const ConceptReview: React.FC<ConceptReviewProps> = ({ concept, onGenerateImage,
               <label className="block text-xs font-black text-slate-400 uppercase mb-3 tracking-wider">朋友圈文案 (立体人设版)</label>
               <textarea
                 value={editedCopy}
-                onChange={(e) => setEditedCopy(e.target.value)}
+                onChange={(e) => {
+                  hasUserEditedRef.current = true;
+                  setEditedCopy(e.target.value);
+                }}
                 className="w-full h-48 p-5 bg-amber-50/30 border border-amber-100 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none transition-all resize-none text-slate-700 leading-relaxed font-medium"
               />
             </div>
@@ -88,7 +107,10 @@ const ConceptReview: React.FC<ConceptReviewProps> = ({ concept, onGenerateImage,
               <label className="block text-xs font-black text-slate-400 uppercase mb-3 tracking-wider">配图提示词定制 (供AI参考)</label>
               <textarea
                 value={editedPrompt}
-                onChange={(e) => setEditedPrompt(e.target.value)}
+                onChange={(e) => {
+                  hasUserEditedRef.current = true;
+                  setEditedPrompt(e.target.value);
+                }}
                 className="w-full h-32 p-4 bg-white/50 border border-amber-100 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none transition-all resize-none text-slate-500 font-mono text-xs mb-4"
               />
               

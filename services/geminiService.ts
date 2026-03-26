@@ -70,6 +70,58 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+async function postJsonStream<T>(
+  path: string,
+  body: unknown,
+  handlers?: {
+    onFirstChunk?: () => void;
+    onChunk?: (chunk: string) => void;
+  }
+): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.body) {
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      const message = data?.error || data?.message || "Request failed. Please try again.";
+      throw new Error(message);
+    }
+    return data as T;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let hasFirstChunk = false;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (value) {
+      const chunk = decoder.decode(value, { stream: !done });
+      buffer += chunk;
+      if (!hasFirstChunk) {
+        hasFirstChunk = true;
+        handlers?.onFirstChunk?.();
+      }
+      handlers?.onChunk?.(chunk);
+    }
+    if (done) break;
+  }
+
+  const data = buffer ? JSON.parse(buffer) : null;
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Request failed. Please try again.";
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
 export async function generateCreativeConcept(
   scenario: string,
   category: ContentCategory,
@@ -78,10 +130,14 @@ export async function generateCreativeConcept(
   contextItems: LibraryItem[] = [],
   sellingPoints: SellingPoint[] = [],
   productPhotos: ProductPhoto[] = [],
-  selectedStyle?: VisualStyle | null
+  selectedStyle?: VisualStyle | null,
+  streamHandlers?: {
+    onFirstChunk?: () => void;
+    onChunk?: (chunk: string) => void;
+  }
 ): Promise<GeneratedConcept> {
   const compressed = imageBase64 ? await compressImage(imageBase64) : null;
-  return postJson<GeneratedConcept>(`${API_BASE}/generate-concept`, {
+  return postJsonStream<GeneratedConcept>(`${API_BASE}/generate-concept`, {
     scenario,
     category,
     userPersona,
@@ -90,7 +146,7 @@ export async function generateCreativeConcept(
     sellingPoints,
     productPhotos,
     selectedStyle,
-  });
+  }, streamHandlers);
 }
 
 export async function generateVisual(

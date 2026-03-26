@@ -8,7 +8,7 @@ import type {
   VisualStyle,
 } from "../../../types";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 type ConceptRequest = {
   scenario: string;
