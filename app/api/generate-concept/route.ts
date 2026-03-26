@@ -1,5 +1,4 @@
 import { GoogleGenAI, Type } from "@google/genai";
-export const runtime = 'edge';
 import type {
   ContentCategory,
   UserPersona,

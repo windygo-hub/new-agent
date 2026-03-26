@@ -104,14 +104,14 @@ export const VISUAL_STYLES: VisualStyle[] = [
 ];
 
 export const PRESET_PRODUCTS: ProductPhoto[] = [
-  { id: 'preset_0', url: 'https://i.imgur.com/qmkVyyo.jpeg', name: '黄关气泡酒', isPreset: true },
-  { id: 'preset_1', url: 'https://i.imgur.com/thBgYQf.jpeg', name: '传统坛装', isPreset: true },
-  { id: 'preset_2', url: 'https://i.imgur.com/r7JkpUQ.jpeg', name: '桂花米酒', isPreset: true },
-  { id: 'preset_3', url: 'https://i.imgur.com/hh3Wx87.jpeg', name: '金福 5年', isPreset: true },
-  { id: 'preset_4', url: 'https://i.imgur.com/5aU0hDk.jpeg', name: '金福 8年', isPreset: true },
-  { id: 'preset_5', url: 'https://i.imgur.com/6rAJCWG.jpeg', name: '玫瑰米酒', isPreset: true },
-  { id: 'preset_6', url: 'https://i.imgur.com/AnfqaAT.jpeg', name: '青梅米酒', isPreset: true },
-  { id: 'preset_7', url: 'https://i.imgur.com/5HOTuBG.jpeg', name: '桑葚米酒', isPreset: true },
+  { id: 'preset_0', url: 'https://i.cetsteam.com/imgs/2026/03/26/fa083a5573802213.jpg', name: '黄关气泡酒', isPreset: true },
+  { id: 'preset_1', url: 'https://i.cetsteam.com/imgs/2026/03/26/e08bd911260f2f86.jpg', name: '传统坛装', isPreset: true },
+  { id: 'preset_2', url: 'https://i.cetsteam.com/imgs/2026/03/26/9a114cbed349de66.jpg', name: '桂花米酒', isPreset: true },
+  { id: 'preset_3', url: 'https://i.cetsteam.com/imgs/2026/03/26/706adc83add7c468.jpg', name: '金福 5年', isPreset: true },
+  { id: 'preset_4', url: 'https://i.cetsteam.com/imgs/2026/03/26/e56374761d3e1997.jpg', name: '金福 8年', isPreset: true },
+  { id: 'preset_5', url: 'https://i.cetsteam.com/imgs/2026/03/26/83c3fad8e5a526f8.jpg', name: '玫瑰米酒', isPreset: true },
+  { id: 'preset_6', url: 'https://i.cetsteam.com/imgs/2026/03/26/846e2dcd429a2318.jpg', name: '青梅米酒', isPreset: true },
+  { id: 'preset_7', url: 'https://i.cetsteam.com/imgs/2026/03/26/dde947cc140dd837.jpg', name: '桑葚米酒', isPreset: true },
 ];
 
 export interface Draft {
