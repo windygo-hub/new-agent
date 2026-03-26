@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const response = await ai.models.generateContent({
+    const streamResponse = await ai.models.generateContentStream({
       model: "gemini-3-pro-preview",
       contents: { parts },
       config: {
@@ -131,10 +131,32 @@ export async function POST(req: Request) {
       },
     });
 
-    return Response.json(JSON.parse(response.text || "{}"));
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of streamResponse) {
+            if (chunk.text) {
+              controller.enqueue(encoder.encode(chunk.text));
+            }
+          }
+          controller.close();
+        } catch (error) {
+          console.error("Gemini Stream Error:", error);
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+      },
+    });
   } catch (error) {
     console.error("Gemini Error:", error);
     return Response.json({ error: "Concept generation failed." }, { status: 500 });
   }
 }
-
